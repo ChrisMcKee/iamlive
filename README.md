@@ -16,25 +16,25 @@ Once downloaded, place the extracted binary in your $PATH (or execute in-place).
 
 To build and install this application, clone this repository and execute the following from it's base:
 
-```
+```shell
 go install
 ```
 
-You must have Go 1.16 or later installed for the build to work.
+You must have Go 1.19 or later installed for the build to work.
 
 ### Homebrew
 
 You may also install this application using a Homebrew tap with the following command:
 
-```
+```shell
 brew install iann0036/iamlive/iamlive
 ```
 
 ### Other Methods
 
-* [Lambda Extension](https://github.com/iann0036/iamlive-lambda-extension)
-* [Docker](https://meirg.co.il/2021/04/23/determining-aws-iam-policies-according-to-terraform-and-aws-cli/)
-* [GitHub Action (with Terraform)](https://github.com/scott-doyland-burrows/gha-composite-terraform-iamlive)
+- [Lambda Extension](https://github.com/iann0036/iamlive-lambda-extension)
+- [Docker](https://meirg.co.il/2021/04/23/determining-aws-iam-policies-according-to-terraform-and-aws-cli/)
+- [GitHub Action (with Terraform)](https://github.com/scott-doyland-burrows/gha-composite-terraform-iamlive)
 
 ## Usage
 
@@ -74,25 +74,25 @@ You can optionally also include the following arguments to the `iamlive` command
 
 _Basic Example (CSM Mode)_
 
-```
+```shell
 iamlive --set-ini
 ```
 
 _Basic Example (Proxy Mode)_
 
-```
+```shell
 iamlive --set-ini --mode proxy
 ```
 
 _Comprehensive Example (CSM Mode)_
 
-```
+```shell
 iamlive --set-ini --profile myprofile --fails-only --output-file policy.json --refresh-rate 1 --sort-alphabetical --host 127.0.0.1 --background
 ```
 
 _Comprehensive Example (Proxy Mode)_
 
-```
+```shell
 iamlive --set-ini --mode proxy --profile myprofile --output-file policy.json --refresh-rate 1 --sort-alphabetical --bind-addr 127.0.0.1:10080 --ca-bundle ~/.iamlive/ca.pem --ca-key ~/.iamlive/ca.key --account-id 123456789012 --background --force-wildcard-resource
 ```
 
@@ -106,13 +106,13 @@ Client-side monitoring mode is the default behaviour and will use [metrics](http
 
 To enable CSM in the AWS CLI, you should either use the `--set-ini` option or add the following to the relevant profile in `.aws/config`:
 
-```
+```shell
 csm_enabled = true
 ```
 
 Alternatively, you can run the following in the window executing your CLI commands:
 
-```
+```shell
 export AWS_CSM_ENABLED=true
 ```
 
@@ -120,7 +120,7 @@ export AWS_CSM_ENABLED=true
 
 To enable CSM in the various AWS SDKs, you can run the following in the window executing your application prior to it starting:
 
-```
+```shell
 export AWS_CSM_ENABLED=true
 export AWS_CSM_PORT=31000
 export AWS_CSM_HOST=127.0.0.1
@@ -128,46 +128,38 @@ export AWS_CSM_HOST=127.0.0.1
 
 ### Proxy Mode
 
-Proxy mode will serve a local HTTP(S) server (by default at `http://127.0.0.1:10080`) that will inspect requests sent to the AWS endpoints before forwarding on to generate IAM policy statements with both `Action` and `Resource` keys. The CA key/certificate pair will be automatically generated and stored within `~/.iamlive/` by default.
+Proxy mode will serve a local HTTP(S) server (by default at `http://127.0.0.1:10080`) that will inspect requests en route to AWS endpoints, enabling `iamlive` to generate IAM policy statements with both `Action` and `Resource` keys. The CA key/certificate bundle is automatically generated and stored in a configurable location (`~/.iamlive/` by default).
 
-#### CLI
+#### Configuration
 
-To set the appropriate CA bundle in the AWS CLI, you should either use the `--set-ini` option or add the following to the relevant profile in `.aws/config`:
+Four settings are required for proper operation of iamlive proxy mode. All of these are controlled through environment variables, and the AWS-specific one also has a corresponding [AWS CLI configuration file setting](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-config-ca_bundle):
 
-```
-ca_bundle = ~/.iamlive/ca.pem
-```
+##### [AWS_CA_BUNDLE](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html#envvars-list)
 
-Alternatively, you can run the following in the window executing your CLI commands:
+> Specifies the path to a certificate bundle to use for HTTPS certificate validation.
+>
+> If defined, this environment variable overrides the value for the profile setting [ca_bundle](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-config-ca_bundle). You can override this environment variable by using the [--ca-bundle](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-options.html#cli-configure-options-ca-bundle) command line parameter.
 
-```
-export AWS_CA_BUNDLE=~/.iamlive/ca.pem
-```
+`iamlive`'s `--set-ini` option automatically sets `ca_bundle` in your `.aws/config` profile during the monitoring session, and clears it when the session completes.
 
-You must also set the proxy settings for your session by running the following in the window executing your CLI commands:
+##### HTTP_PROXY, HTTPS_PROXY, NO_PROXY
 
-```
-export HTTP_PROXY=http://127.0.0.1:10080
-export HTTPS_PROXY=http://127.0.0.1:10080
-```
+These conventional environment variables control proxying behavior of many client applications (e.g. [wget](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-proxy.html) and [curl](https://everything.curl.dev/usingcurl/proxies/env)), most notably the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-proxy.html). These must be exported in the shell of your CLI client session, e.g.:
 
-#### SDKs
-
-To enable CSM in the various AWS SDKs, you can run the following in the window executing your application prior to it starting:
-
-```
-export HTTP_PROXY=http://127.0.0.1:10080
-export HTTPS_PROXY=http://127.0.0.1:10080
-export AWS_CA_BUNDLE=~/.iamlive/ca.pem
+```shell
+export {HTTP,HTTPS}_PROXY=http://127.0.0.1:10080
+export NO_PROXY=eks.amazonaws.com,github.com
 ```
 
-Check the [official docs](https://docs.aws.amazon.com/credref/latest/refdocs/setting-global-ca_bundle.html) for further details on setting the CA bundle.
+Will forward _all_ http and https traffic, _except_ to endpoints at domains `eks.amazonaws.com` and `github.com`, to a proxy at localhost port 10080.
+
+Note that it's important that the http and https proxy addresses are the same, as [instructed by the AWS CLI docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-proxy.html).
 
 ## FAQs
 
 _I get a message "package embed is not in GOROOT" when attempting to build myself_
 
-This project requires Go 1.16 or above to be built correctly (due to embedding feature).
+This project requires Go 1.19 or above to be built correctly (due to embedding feature).
 
 ## Acknowledgements
 
